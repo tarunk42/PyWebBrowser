@@ -1,6 +1,15 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage, QWebEngineSettings
+
+
+class CustomWebEnginePage(QWebEnginePage):
+    def javaScriptConsoleMessage(self, level, message, line_number, source_id):
+        # Filter out specific warnings or errors
+        if "Self-XSS" in message or "Uncaught (in promise) cancel" in message:
+            return  # Ignore these specific messages
+        print(f"JS Error [{level}]: {message} (Line {line_number} in {source_id})")
+
 
 class MyWebBrowser(QMainWindow):
     def __init__(self):
@@ -37,6 +46,16 @@ class MyWebBrowser(QMainWindow):
 
         # WebEngine view
         self.browser = QWebEngineView()
+        self.browser.setPage(CustomWebEnginePage(self.browser))
+
+        # Enable JavaScript and other settings
+        self.browser.settings().setAttribute(QWebEngineSettings.JavascriptEnabled, True)
+        self.browser.settings().setAttribute(QWebEngineSettings.PluginsEnabled, True)
+        self.browser.settings().setAttribute(QWebEngineSettings.LocalStorageEnabled, True)
+        self.browser.settings().setAttribute(QWebEngineSettings.XSSAuditingEnabled, True)
+        self.browser.settings().setAttribute(QWebEngineSettings.WebGLEnabled, True)
+        self.browser.settings().setAttribute(QWebEngineSettings.Accelerated2dCanvasEnabled, True)
+        self.browser.settings().setAttribute(QWebEngineSettings.AllowRunningInsecureContent, True)
 
         # Adding layouts to the main layout
         self.layout.addLayout(self.horizontal)
@@ -45,7 +64,7 @@ class MyWebBrowser(QMainWindow):
         self.central_widget.setLayout(self.layout)
 
         # Default URL
-        self.browser.setUrl(QUrl("http://google.com"))
+        self.browser.setUrl(QUrl("https://google.com"))
 
         # Button actions
         self.go_btn.clicked.connect(self.navigate_to_url)
@@ -53,11 +72,17 @@ class MyWebBrowser(QMainWindow):
         self.forward_btn.clicked.connect(self.browser.forward)
         self.url_bar.returnPressed.connect(self.navigate_to_url)
 
+        # Update URL bar when navigating
+        self.browser.urlChanged.connect(self.update_url_bar)
+
     def navigate_to_url(self):
-        url = self.url_bar.text()
+        url = self.url_bar.text().strip()
         if not url.startswith("http://") and not url.startswith("https://"):
-            url = "http://" + url
+            url = "https://" + url  # Default to HTTPS for security
         self.browser.setUrl(QUrl(url))
+
+    def update_url_bar(self, qurl):
+        self.url_bar.setText(qurl.toString())
 
 
 app = QApplication([])
